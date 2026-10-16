@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://lesothosandstone.co.za/sitemap.xml

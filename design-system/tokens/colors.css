@@ -1,0 +1,49 @@
+:root{
+/* Base palette — from owner-supplied reference swatches */
+--chalk:#F7F7F5;
+--basalt:#1B1B1D;
+--ash:#C5BEB8;
+--pumice:#ABA398;
+--sandstone:#A79581;
+--umber:#625140;
+--clay:#8A7863;
+--dune:#C9BCA4;
+--slate:#7F776D;
+--earth:#47362A;
+/* Derived darks for the dramatic ground */
+--basalt-900:#121213;
+--basalt-800:#1B1B1D;
+--basalt-700:#232225;
+--basalt-600:#2E2C2D;
+--basalt-500:#3A3735;
+/* Semantic — surfaces */
+--surface-page:var(--basalt-800);
+--surface-sunken:var(--basalt-900);
+--surface-raised:var(--basalt-700);
+--surface-card:var(--basalt-700);
+--surface-inverse:var(--chalk);
+--surface-accent:var(--dune);
+--surface-earth:var(--earth);
+/* Semantic — text */
+--text-strong:var(--chalk);
+--text-body:#D9D3CC;
+--text-muted:var(--pumice);
+--text-subtle:#8F877D;
+--text-accent:var(--dune);
+--text-on-accent:var(--basalt);
+--text-on-inverse:var(--basalt);
+/* Semantic — lines */
+--line-hairline:rgba(247,247,245,.12);
+--line-strong:rgba(247,247,245,.28);
+--line-accent:var(--sandstone);
+/* Semantic — interactive */
+--action-primary:var(--dune);
+--action-primary-hover:var(--chalk);
+--action-secondary:var(--sandstone);
+--focus-ring:var(--dune);
+--state-error:#C98A74;
+--state-success:#A8B08E;
+/* Overlays */
+--scrim-bottom:linear-gradient(180deg,rgba(18,18,19,0) 40%,rgba(18,18,19,.85) 100%); /* @kind color */
+--scrim-full:rgba(18,18,19,.55);
+}
