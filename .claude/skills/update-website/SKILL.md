@@ -40,6 +40,11 @@ public/                    ← GENERATED. Never edit by hand; it is wiped on eve
 
 **Add a page** — add a `page(route, navKey, title, description, (b) => html)` call in `build.mjs`, add its route to `R`, and (if it belongs in the menu) to the `items` list in `header()`. Build markup from the existing partials (`hero`, `reveal`, `eyebrow`, `button`, `frame`, `parallax`, `contactList`, `field`) and existing CSS classes before writing new CSS.
 
+**Machine-readable layer (search engines, AI answers, agents)** — generated automatically from `content/site.json` on every build, so keep the content file accurate:
+- schema.org JSON-LD in every page (`ORG`, `productLd()`, `jsonLd()` in `build.mjs`): Organization on all pages, Product with specs on product pages, ItemList on range pages, BreadcrumbList wherever there's a breadcrumb. Validate changes at https://validator.schema.org/.
+- `public/llms.txt`: a plain-language site map for AI tools. `public/data/products.json`: the full catalogue with specs, the starting point for any future agent/MCP/NLWeb integration.
+- Never move page content into JavaScript-only rendering: AI crawlers read the raw HTML and do not run scripts.
+
 **Change colours / fonts / spacing** — edit tokens in `src/assets/css/tokens/`, not hard-coded values in components. Fonts are Archivo (variable width) + IBM Plex Mono, loaded from Google Fonts in `layout()`.
 
 **Forms** — the site is static, so "Become a Distributor" and "Leave a message" open the visitor's email app with the filled-in fields, addressed to `site.formEmail`. To use a form service instead (Formspree, Netlify Forms, a PHP mailer…), set the `<form action>` in `distributorForm()` / the contact page and remove the `data-mailto` attribute.
