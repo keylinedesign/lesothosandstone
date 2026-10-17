@@ -130,7 +130,9 @@ const lightbox = () => `<div class="lightbox" hidden role="dialog" aria-modal="t
   </div>
 </div>`;
 
+let CRUMBS = null; // set by hero(), read by layout() for BreadcrumbList structured data
 function hero(b, { crumbs, eyebrowText, title, image, body = '', words = false }) {
+  CRUMBS = crumbs || null;
   const kind = image ? 'hero--image' : 'hero--plain';
   return `<section class="hero ${kind}">
   ${image ? `<div class="hero__media">${parallax(frame(image, { eager: true }), 0.12)}<div class="hero__scrim"></div></div>` : ''}
@@ -185,7 +187,56 @@ function footer(b) {
 </footer>`;
 }
 
-function layout({ b, current, title, description, body, extra = '', ogImage }) {
+/* ---------- structured data (schema.org JSON-LD) ----------
+   Machine-readable facts for search engines, AI answer engines and agents. */
+const abs = (route) => `${D.site.url}/${route}`;
+const absImg = (src) => (/^https?:/.test(src) ? src : `${D.site.url}/${src.replace(/^\/+/, '')}`);
+const ORG = {
+  '@type': 'Organization',
+  '@id': `${D.site.url}/#organization`,
+  name: D.site.name,
+  legalName: D.site.legal,
+  slogan: D.site.tagline,
+  url: `${D.site.url}/`,
+  logo: `${D.site.url}/assets/img/logo-lesotho-stone.jpeg`,
+  description: D.about[0],
+  email: D.contactList.filter((c) => c.label === 'Email').map((c) => c.value),
+  telephone: D.contactList.filter((c) => c.href && c.href.startsWith('tel:')).map((c) => c.value),
+  address: { '@type': 'PostalAddress', addressLocality: 'Lokokoaneng', addressRegion: 'Berea', addressCountry: 'LS' },
+  areaServed: [...D.distribution.regions.map((r) => ({ '@type': 'AdministrativeArea', name: `${r}, South Africa` })), { '@type': 'Country', name: 'Lesotho' }],
+  knowsAbout: CAT_ORDER.map((id) => D.categories[id].name),
+};
+function productLd(id, name) {
+  const c = D.categories[id];
+  const s = D.specs[name];
+  const props = s ? [['Format', s.format], ['Size', s.size], ['Units per M2', s.unitsPerM2], ['M2 per pallet', s.m2PerPallet]]
+    .filter(([, v]) => v && v !== '—' && v !== 'N/A').map(([k, v]) => ({ '@type': 'PropertyValue', name: k, value: v })) : [];
+  return {
+    '@type': 'Product',
+    '@id': `${abs(R.product(id, name))}#product`,
+    name,
+    category: c.name,
+    description: c.blurb,
+    image: absImg(c.image),
+    url: abs(R.product(id, name)),
+    material: 'Natural sandstone',
+    countryOfOrigin: { '@type': 'Country', name: 'Lesotho' },
+    brand: { '@type': 'Brand', name: D.site.name },
+    manufacturer: { '@id': ORG['@id'] },
+    ...(props.length ? { additionalProperty: props } : {}),
+  };
+}
+function jsonLd(extra = []) {
+  const graph = [ORG, ...extra];
+  if (CRUMBS) graph.push({
+    '@type': 'BreadcrumbList',
+    itemListElement: CRUMBS.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.label, ...(c.route != null ? { item: abs(c.route) } : {}) })),
+  });
+  const json = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c');
+  return `<script type="application/ld+json">${json}</script>`;
+}
+
+function layout({ b, current, title, description, body, extra = '', ogImage, ld = [], route }) {
   const full = title ? `${title} – ${D.site.name}` : `${D.site.name} – ${D.site.tagline}`;
   return `<!doctype html>
 <html lang="en">
@@ -204,6 +255,10 @@ ${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">` : ''}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="${b}assets/css/site.css">
+${route != null ? `<link rel="canonical" href="${abs(route)}">` : ''}
+<link rel="alternate" type="text/plain" title="Site summary for AI tools" href="${b}llms.txt">
+<link rel="alternate" type="application/json" title="Product catalogue" href="${b}data/products.json">
+${jsonLd(ld)}
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -264,7 +319,7 @@ ${marquee()}
   </div>
   ${projectGrid(b, preview, 'home-projects')}
 </section>`;
-}, { extra: lightbox(), ogImage: H.features[0].image });
+}, { extra: lightbox(), ogImage: H.features[0].image, ld: [{ '@type': 'WebSite', '@id': `${D.site.url}/#website`, name: D.site.name, url: `${D.site.url}/`, publisher: { '@id': ORG['@id'] } }] });
 
 page(R.about, 'about', 'About Us', D.about[0], (b) => {
   const A = D.about;
@@ -305,7 +360,8 @@ ${hero(b, { crumbs: [HOME, PRODUCTS, { label: c.name }], title: c.name, image: c
     const s = D.specs[p];
     return reveal(`<a class="tile" href="${href(b, R.product(id, p))}"><span class="tile__meta"><span>${pad(i + 1)}</span><span>${esc(s ? s.format : '')}</span></span><span class="tile__foot"><span class="tile__name">${esc(p)}</span><span class="tile__arrow" aria-hidden="true">→</span></span></a>`, { delay: (i % 4) * 70 });
   }).join('')}</div>
-</section>`, { ogImage: c.image });
+</section>`, { ogImage: c.image, ld: [{ '@type': 'ItemList', name: c.name, description: c.blurb, numberOfItems: c.products.length,
+    itemListElement: c.products.map((p, i) => ({ '@type': 'ListItem', position: i + 1, name: p, url: abs(R.product(id, p)) })) }] });
 
   c.products.forEach((name, i) => {
     const s = D.specs[name];
@@ -324,7 +380,7 @@ ${hero(b, { crumbs: [HOME, PRODUCTS, { label: c.name, route: R.cat(id) }, { labe
     ${eyebrow(`${c.name} Products`)}
     <ul>${c.products.map((p) => `<li><a href="${href(b, R.product(id, p))}"${p === name ? ' aria-current="page"' : ''}>${esc(p)}</a></li>`).join('')}</ul>
   </aside>
-</section>`, { ogImage: c.image });
+</section>`, { ogImage: c.image, ld: [productLd(id, name)] });
   });
 }
 
@@ -389,7 +445,9 @@ for (const p of pages) {
   const depth = p.route.split('/').filter(Boolean).length;
   const b = '../'.repeat(depth);
   BASE = b;
-  const html = layout({ b, current: p.current, title: p.title, description: p.description, body: p.bodyFn(b), extra: p.extra, ogImage: p.ogImage });
+  CRUMBS = null;
+  const body = p.bodyFn(b);
+  const html = layout({ b, current: p.current, title: p.title, description: p.description, body, extra: p.extra, ogImage: p.ogImage, ld: p.ld, route: p.route });
   const file = path.join(OUT, p.route, 'index.html');
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, html);
@@ -406,10 +464,48 @@ fs.cpSync(path.join(SRC, 'assets/img'), path.join(OUT, 'assets/img'), { recursiv
 
 // 404 + sitemap + robots
 BASE = '/';
+CRUMBS = null;
 fs.writeFileSync(path.join(OUT, '404.html'), layout({ b: '/', current: '', title: 'Page not found', description: D.home.sub,
   body: `${hero('/', { crumbs: [HOME, { label: '404' }], title: 'Page not found' })}<section class="wrap section section--flush-top">${button('Home', '/')}</section>` }));
 const urls = pages.map((p) => `  <url><loc>${D.site.url}/${p.route}</loc></url>`).join('\n');
 fs.writeFileSync(path.join(OUT, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`);
+// Product catalogue as JSON: one source of truth for future integrations (agents, MCP/NLWeb endpoints, distributor feeds)
+const catalogue = {
+  publisher: D.site.legal, url: `${D.site.url}/`, generated: new Date().toISOString().slice(0, 10),
+  contact: D.contactList.map(({ label, value }) => ({ label, value })),
+  categories: CAT_ORDER.map((id) => ({
+    name: D.categories[id].name, url: abs(R.cat(id)), description: D.categories[id].blurb,
+    products: D.categories[id].products.map((name) => ({ name, url: abs(R.product(id, name)), specs: D.specs[name] || null })),
+  })),
+  distribution: { regions: D.distribution.regions, summary: D.distribution.p1 },
+};
+fs.mkdirSync(path.join(OUT, 'data'), { recursive: true });
+fs.writeFileSync(path.join(OUT, 'data/products.json'), JSON.stringify(catalogue, null, 2) + '\n');
+
+// llms.txt (llmstxt.org proposal): a plain-language map of the site for AI tools
+const line = (label, route, note) => `- [${label}](${abs(route)})${note ? `: ${note}` : ''}`;
+const llms = [
+  `# ${D.site.name}`, '',
+  `> ${D.about[0]}`, '',
+  D.about[1], '',
+  `Contact: ${D.contactList.map((c) => `${c.label} ${c.value}`).join('; ')}.`, '',
+  '## Company',
+  line('About Us', R.about, 'history, scale and capabilities'),
+  line('Production', R.production, 'mining and production expertise'),
+  line('Distribution', R.distribution, `regions served: ${D.distribution.regions.join(', ')}`),
+  line('Contact', R.contact, 'phone, email, quarry location and enquiry form'), '',
+  '## Products',
+  line('Product catalogue (JSON)', 'data/products.json', 'all products with specifications'),
+  ...CAT_ORDER.flatMap((id) => [line(D.categories[id].name, R.cat(id), D.categories[id].blurb),
+    ...D.categories[id].products.map((name) => {
+      const s = D.specs[name];
+      return '  ' + line(name, R.product(id, name), s ? `${s.format}, ${s.size}, ${s.unitsPerM2} units per m², ${s.m2PerPallet} m² per pallet` : '');
+    })]), '',
+  '## Optional',
+  line('Projects gallery', R.projects, `${D.projects.length} photographs of completed projects by finish`), '',
+].join('\n');
+fs.writeFileSync(path.join(OUT, 'llms.txt'), llms);
+
 fs.writeFileSync(path.join(OUT, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${D.site.url}/sitemap.xml\n`);
 
 console.log(`Built ${pages.length} pages → ${path.relative(process.cwd(), OUT) || '.'}/`);
